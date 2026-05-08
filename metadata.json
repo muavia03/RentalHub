@@ -1,0 +1,6 @@
+{
+  "name": "RentalHub",
+  "description": "AI-powered smart rental marketplace with personalized matching and real estate insights.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}

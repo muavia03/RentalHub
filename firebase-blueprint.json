@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["Landlord", "Tenant"] },
+        "avatar": { "type": "string" },
+        "notificationsEnabled": { "type": "boolean" },
+        "privacyEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "fullName", "role"]
+    },
+    "Listing": {
+      "title": "Property Listing",
+      "description": "Rental property listing details",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "price": { "type": "number" },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "city": { "type": "string" },
+        "beds": { "type": "number" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
+        "images": { "type": "array", "items": { "type": "string" }, "maxItems": 10 },
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerAvatar": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "ownerId", "price"]
+    },
+    "Inquiry": {
+      "title": "Tenant Inquiry",
+      "description": "Inquiry sent by a tenant to a landlord",
+      "type": "object",
+      "properties": {
+        "listingId": { "type": "string" },
+        "listingTitle": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "landlordId": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Accepted", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["listingId", "tenantId", "landlordId", "message"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "listings/{listingId}": {
+      "schema": "Listing",
+      "description": "Property listings"
+    },
+    "inquiries/{inquiryId}": {
+      "schema": "Inquiry",
+      "description": "Tenant inquiries"
+    }
+  }
+}

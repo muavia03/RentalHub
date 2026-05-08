@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['notificationsEnabled', 'privacyEnabled', 'fullName', 'phone', 'avatar'])
+      ) && (incoming().uid == existing().uid);
+    }
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 200 &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100;
+    }
+
+    // Listing Rules
+    match /listings/{listingId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidListing(incoming());
+      allow update: if isSignedIn() && isOwner(existing().ownerId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'price', 'description', 'amenities', 'status', 'type', 'location', 'city', 'beds', 'images', 'updatedAt'])
+      ) && isValidListing(incoming());
+      allow delete: if isSignedIn() && isOwner(existing().ownerId);
+    }
+
+    function isValidListing(data) {
+      return data.ownerId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.price is number && data.price >= 0 &&
+             data.type in ['Apartment', 'House', 'Villa', 'Shop'] &&
+             data.city is string && data.city.size() <= 100 &&
+             data.images is list && data.images.size() <= 10;
+    }
+
+    // Inquiry Rules
+    match /inquiries/{inquiryId} {
+      allow get: if isSignedIn() && (isOwner(existing().tenantId) || isOwner(existing().landlordId));
+      allow list: if isSignedIn() && (existing().tenantId == request.auth.uid || existing().landlordId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().tenantId == request.auth.uid && isValidInquiry(incoming());
+      allow update: if isSignedIn() && isOwner(existing().landlordId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+      );
+    }
+
+    function isValidInquiry(data) {
+      return data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
+             data.listingId is string && data.listingId.size() <= 128 &&
+             exists(/databases/$(database)/documents/listings/$(data.listingId));
+    }
+  }
+}
