@@ -85,7 +85,7 @@ function Navigation() {
           </>
         ) : (
           <>
-            <Stack.Screen name="HomeTabs" component={MainTabs} />
+            <Stack.Screen name="Home" component={MainTabs} />
             <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} />
             <Stack.Screen name="PostListing" component={PostListingScreen} />
           </>
