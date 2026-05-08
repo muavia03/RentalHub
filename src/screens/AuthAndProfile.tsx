@@ -113,6 +113,147 @@ export const LoginScreen = ({ navigation }: any) => {
   );
 };
 
+export const SignupScreen = ({ navigation }: any) => {
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        role: 'Tenant' as 'Landlord' | 'Tenant'
+    });
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleSignup = async () => {
+        if (!formData.fullName || !formData.email || !formData.password) {
+            Alert.alert("Error", "Please fill in all fields");
+            return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+            Alert.alert("Error", "Passwords do not match");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+            const user = userCredential.user;
+
+            await setDoc(doc(db, 'users', user.uid), {
+                uid: user.uid,
+                email: formData.email,
+                fullName: formData.fullName,
+                role: formData.role,
+                notificationsEnabled: true,
+                privacyEnabled: false,
+                createdAt: new Date().toISOString()
+            });
+
+            Alert.alert("Success", "Account created successfully!");
+            // Navigation handled by AuthProvider state change
+        } catch (err: any) {
+            Alert.alert("Signup Failed", err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1, backgroundColor: '#FBFCFF' }}
+        >
+          <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 60 }}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginBottom: 20 }}>
+                <X size={24} color="#1B1B1F" />
+            </TouchableOpacity>
+
+            <Text style={{ fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>Create Account</Text>
+            <Text style={{ color: '#44474E', marginBottom: 32 }}>Join RentalHub to find or post properties</Text>
+
+            <View style={{ gap: 16 }}>
+                <View>
+                    <Text style={styles.inputLabel}>Full Name</Text>
+                    <TextInput 
+                        placeholder="John Doe"
+                        value={formData.fullName}
+                        onChangeText={(text) => setFormData({...formData, fullName: text})}
+                        style={styles.inputNoIcon}
+                    />
+                </View>
+
+                <View>
+                    <Text style={styles.inputLabel}>Email Address</Text>
+                    <TextInput 
+                        placeholder="name@example.com"
+                        value={formData.email}
+                        onChangeText={(text) => setFormData({...formData, email: text})}
+                        style={styles.inputNoIcon}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+                </View>
+
+                <View>
+                    <Text style={styles.inputLabel}>Password</Text>
+                    <TextInput 
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChangeText={(text) => setFormData({...formData, password: text})}
+                        secureTextEntry={!showPassword}
+                        style={styles.inputNoIcon}
+                    />
+                </View>
+
+                <View>
+                    <Text style={styles.inputLabel}>Confirm Password</Text>
+                    <TextInput 
+                        placeholder="••••••••"
+                        value={formData.confirmPassword}
+                        onChangeText={(text) => setFormData({...formData, confirmPassword: text})}
+                        secureTextEntry={!showPassword}
+                        style={styles.inputNoIcon}
+                    />
+                </View>
+
+                <View>
+                    <Text style={styles.inputLabel}>Register As</Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                        <TouchableOpacity 
+                            onPress={() => setFormData({...formData, role: 'Tenant'})}
+                            style={[styles.roleTab, formData.role === 'Tenant' && styles.roleTabActive]}
+                        >
+                            <Text style={[styles.roleTabText, formData.role === 'Tenant' && { color: 'white' }]}>Buyer/Tenant</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => setFormData({...formData, role: 'Landlord'})}
+                            style={[styles.roleTab, formData.role === 'Landlord' && styles.roleTabActive]}
+                        >
+                            <Text style={[styles.roleTabText, formData.role === 'Landlord' && { color: 'white' }]}>Seller/Owner</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <TouchableOpacity 
+                    onPress={handleSignup}
+                    disabled={loading}
+                    style={[styles.button, { marginTop: 16 }, loading && { opacity: 0.7 }]}
+                >
+                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Create Account</Text>}
+                </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16, marginBottom: 40 }}>
+                    <Text style={{ color: '#44474E' }}>Already have an account? </Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                        <Text style={{ color: '#0061A4', fontWeight: 'bold' }}>Login</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+    );
+};
+
 export const ProfileScreen = () => {
     const { profile, user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
@@ -386,5 +527,37 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 40,
         marginBottom: 40
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#1B1B1F',
+        marginBottom: 8
+    },
+    inputNoIcon: {
+        width: '100%',
+        height: 56,
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#C4C6CF',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        fontSize: 16
+    },
+    roleTab: {
+        flex: 1,
+        height: 48,
+        backgroundColor: '#F1F3F9',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    roleTabActive: {
+        backgroundColor: '#0061A4'
+    },
+    roleTabText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#44474E'
     }
 });

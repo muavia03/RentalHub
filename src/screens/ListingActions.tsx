@@ -22,7 +22,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { PAKISTAN_CITIES } from '../constants';
 
-export const PostListingScreen = ({ navigation, route }: any) => {
+const PostListingScreen = ({ navigation, route }: any) => {
   const id = route?.params?.id;
   const isEditMode = !!id;
   const { user, profile, currentRole } = useAuth();
@@ -306,6 +306,8 @@ export const PostListingScreen = ({ navigation, route }: any) => {
     </KeyboardAvoidingView>
   );
 };
+
+export default PostListingScreen;
 
 const styles = StyleSheet.create({
     header: {

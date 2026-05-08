@@ -12,12 +12,12 @@ import {
 } from 'lucide-react-native';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { LoginScreen, ProfileScreen } from './src/screens/AuthAndProfile';
+import { LoginScreen, ProfileScreen, SignupScreen } from './src/screens/AuthAndProfile';
 import Dashboard from './src/screens/Dashboard';
 import SearchScreen from './src/screens/Search';
 import ManagementScreen from './src/screens/Management';
-import { PropertyDetailScreen } from './src/screens/PropertyDetail';
-import { PostListingScreen } from './src/screens/ListingActions';
+import PropertyDetailScreen from './src/screens/PropertyDetail';
+import PostListingScreen from './src/screens/ListingActions';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -79,7 +79,10 @@ function Navigation() {
       <StatusBar style="auto" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="HomeTabs" component={MainTabs} />
