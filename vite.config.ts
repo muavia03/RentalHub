@@ -13,7 +13,10 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'react-native': 'react-native-web',
+        'react-native-svg': 'react-native-web',
       },
+      extensions: ['.web.tsx', '.web.ts', '.tsx', '.ts', '.web.js', '.js'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

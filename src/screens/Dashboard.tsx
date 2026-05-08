@@ -66,7 +66,7 @@ const Dashboard = ({ navigation }: any) => {
       {/* Features */}
       <View style={styles.padding}>
         <Text style={styles.sectionTitle}>Core Features</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} gap={16}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
            <FeatureCard title="Verified" icon={<MapIcon size={24} color="#0061A4" />} />
            <FeatureCard title="Direct Chat" icon={<MessageSquare size={24} color="#0061A4" />} />
            <FeatureCard title="Smart Filters" icon={<SlidersHorizontal size={24} color="#0061A4" />} />
