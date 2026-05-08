@@ -1,24 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, BedDouble, Bath, Square, Share2, Heart, Send, Check, Store, Ruler, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { 
+    View, 
+    Text, 
+    ScrollView, 
+    TouchableOpacity, 
+    Image, 
+    ActivityIndicator, 
+    Alert,
+    StyleSheet,
+    Dimensions,
+    Share,
+    TextInput
+} from 'react-native';
+import { 
+    ArrowLeft, MapPin, BedDouble, Bath, Square, Share2, Heart, Send, Check 
+} from 'lucide-react-native';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { formatPrice, cn } from '../lib/utils';
 import { Property } from '../types';
-import { MOCK_PROPERTIES } from '../constants';
 
-export const PropertyDetailScreen = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+const { width } = Dimensions.get('window');
+
+const PropertyDetailScreen = ({ navigation, route }: any) => {
+  const { id } = route?.params || {};
   const { user, profile } = useAuth();
+  
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [sendingInquiry, setSendingInquiry] = useState(false);
   const [inquirySent, setInquirySent] = useState(false);
-
   const [activeImageIdx, setActiveImageIdx] = useState(0);
 
   useEffect(() => {
@@ -29,10 +41,6 @@ export const PropertyDetailScreen = () => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProperty({ id: docSnap.id, ...docSnap.data() } as Property);
-        } else {
-          // Fallback to mock if not found in Firebase (might be a mock ID)
-          const mock = MOCK_PROPERTIES.find(p => p.id === id);
-          if (mock) setProperty(mock as any);
         }
       } catch (err) {
         console.error("Error fetching property", err);
@@ -43,12 +51,16 @@ export const PropertyDetailScreen = () => {
     fetchProperty();
   }, [id]);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!property) return;
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      alert('Link copied to clipboard!');
-    });
+    try {
+      await Share.share({
+        message: `Check out this property: ${property.title} in ${property.location}. PKR ${property.price}/month`,
+        title: property.title
+      });
+    } catch (error) {
+      Alert.alert("Error", "Could not share property");
+    }
   };
 
   const handleSendInquiry = async () => {
@@ -67,6 +79,7 @@ export const PropertyDetailScreen = () => {
       });
       setInquirySent(true);
       setInquiryMessage('');
+      Alert.alert("Success", "Inquiry sent successfully!");
     } catch (err) {
       console.error("Failed to send inquiry", err);
       handleFirestoreError(err, OperationType.WRITE, 'inquiries');
@@ -75,163 +88,378 @@ export const PropertyDetailScreen = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center pt-20 font-bold text-primary">Loading property details...</div>;
-  if (!property) return <div className="p-8 text-center pt-20 font-bold text-error">Property not found.</div>;
+  if (loading) return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#0061A4" />
+      </View>
+  );
+
+  if (!property) return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Property not found.</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={{ color: '#0061A4', marginTop: 12 }}>Go Back</Text>
+          </TouchableOpacity>
+      </View>
+  );
+
+  const images = property.images && property.images.length > 0 ? property.images : [(property as any).image];
 
   return (
-    <div className="pb-32 bg-surface">
+    <View style={styles.container}>
       {/* Header Overlay */}
-      <div className="fixed top-[56px] left-0 right-0 z-50 p-4 flex justify-between items-center pointer-events-none">
-        <button 
-          onClick={() => navigate(-1)}
-          className="p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg pointer-events-auto active:scale-90 transition-transform"
-        >
-          <ArrowLeft size={24} className="text-on-surface" />
-        </button>
-        <div className="flex gap-2 pointer-events-auto">
-          <button 
-            onClick={handleShare}
-            className="p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg active:scale-90 transition-transform"
-          >
-            <Share2 size={24} className="text-on-surface" />
-          </button>
-          <button className="p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg active:scale-90 transition-transform">
-            <Heart size={24} className="text-on-surface" />
-          </button>
-        </div>
-      </div>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
+          <ArrowLeft size={24} color="#1B1B1F" />
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+                <Share2 size={24} color="#1B1B1F" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerBtn}>
+                <Heart size={24} color="#1B1B1F" />
+            </TouchableOpacity>
+        </View>
+      </View>
 
-      {/* Hero Image Slider */}
-      <div className="h-[450px] w-full relative overflow-hidden bg-black">
-        <div className="flex h-full transition-transform duration-500 ease-out" style={{ transform: `translateX(-${activeImageIdx * 100}%)` }}>
-          {(property.images || [(property as any).image]).map((img, idx) => (
-            <img key={idx} src={img} alt={`${property.title} ${idx}`} className="w-full h-full object-cover shrink-0" />
-          ))}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-        
-        {/* Indicators */}
-        <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-2 z-20">
-          {(property.images || [(property as any).image]).map((_, idx) => (
-            <button 
-              key={idx}
-              onClick={() => setActiveImageIdx(idx)}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                activeImageIdx === idx ? "w-6 bg-white" : "w-1.5 bg-white/50"
-              )}
-            />
-          ))}
-        </div>
-      </div>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Hero Slider */}
+        <View style={styles.heroContainer}>
+            <ScrollView 
+                horizontal 
+                pagingEnabled 
+                showsHorizontalScrollIndicator={false}
+                onScroll={(e) => {
+                    const x = e.nativeEvent.contentOffset.x;
+                    setActiveImageIdx(Math.round(x / width));
+                }}
+                scrollEventThrottle={16}
+            >
+                {images.map((img, idx) => (
+                    <Image key={idx} source={{ uri: img }} style={styles.heroImage} />
+                ))}
+            </ScrollView>
+            
+            {/* Indicators */}
+            <View style={styles.indicatorContainer}>
+                {images.map((_, idx) => (
+                    <View 
+                        key={idx} 
+                        style={[
+                            styles.indicator, 
+                            activeImageIdx === idx ? styles.indicatorActive : styles.indicatorInactive
+                        ]} 
+                    />
+                ))}
+            </View>
+        </View>
 
-      {/* Content */}
-      <div className="max-w-2xl mx-auto px-6 -mt-12 relative z-10">
-        <div className="bg-white rounded-3xl p-8 shadow-2xl border border-outline-variant space-y-6">
-          <div className="space-y-2">
-            <div className="flex justify-between items-start">
-              <span className="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-[10px] font-bold uppercase tracking-widest">
-                {property.type}
-              </span>
-              <span className="text-3xl font-display font-extrabold text-primary">
-                {formatPrice(property.price)}
-                <span className="text-sm font-bold text-on-surface-variant font-sans">/mo</span>
-              </span>
-            </div>
-            <h1 className="text-3xl font-display font-bold text-on-surface tracking-tight leading-tight">
-              {property.title}
-            </h1>
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <MapPin size={18} className="shrink-0" />
-              <span className="text-sm font-medium">{property.location}</span>
-            </div>
-          </div>
+        {/* Content Card */}
+        <View style={styles.contentCard}>
+            <View style={styles.badgeRow}>
+                <View style={styles.typeBadge}>
+                    <Text style={styles.typeText}>{property.type}</Text>
+                </View>
+                <Text style={styles.priceText}>
+                    PKR {property.price.toLocaleString()}
+                    <Text style={styles.perMonth}>/mo</Text>
+                </Text>
+            </View>
 
-          <div className="flex justify-between py-6 border-y border-outline-variant">
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
-                <BedDouble size={24} className="text-primary" />
-              </div>
-              <span className="text-sm font-bold">{property.beds} Beds</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
-                <Bath size={24} className="text-primary" />
-              </div>
-              <span className="text-sm font-bold">2 Baths</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
-                <Square size={24} className="text-primary" />
-              </div>
-              <span className="text-sm font-bold">1,200 sqft</span>
-            </div>
-          </div>
+            <Text style={styles.title}>{property.title}</Text>
+            
+            <View style={styles.locationRow}>
+                <MapPin size={16} color="#74777F" />
+                <Text style={styles.locationText}>{property.location}</Text>
+            </View>
 
-          <div className="space-y-3">
-            <h3 className="text-lg font-display font-bold">Description</h3>
-            <p className="text-on-surface-variant text-sm leading-relaxed font-medium">
-              {(property as any).description || "Experience luxury living in this premium property. Located in the heart of the city, this unit offers breathtaking views, high-end finishing, and state-of-the-art facilities."}
-            </p>
-          </div>
+            <View style={styles.featuresRow}>
+                <Feature icon={<BedDouble size={20} color="#0061A4" />} label={`${property.beds} Beds`} />
+                <Feature icon={<Bath size={20} color="#0061A4" />} label="2 Baths" />
+                <Feature icon={<Square size={20} color="#0061A4" />} label="1,200 sqft" />
+            </View>
 
-          <div className="space-y-4">
-            <h3 className="text-lg font-display font-bold">Amenities</h3>
-            <div className="flex flex-wrap gap-2">
-              {(property.amenities || ['Parking', 'Security', 'WiFi']).map(am => (
-                <span key={am} className="px-4 py-2 bg-surface-container-low border border-outline-variant rounded-xl text-xs font-bold text-on-surface">
-                  {am}
-                </span>
-              ))}
-            </div>
-          </div>
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.descriptionText}>
+                    {(property as any).description || "Experience luxury living in this premium property. Located in the heart of the city, this unit offers breathtaking views, high-end finishing, and state-of-the-art facilities."}
+                </Text>
+            </View>
 
-          {/* Inquiry Section */}
-          <div className="pt-8 border-t border-outline-variant">
-            <h3 className="text-xl font-display font-bold mb-4">Send an Inquiry</h3>
-            {!user ? (
-               <div className="p-6 bg-surface-container-low rounded-2xl text-center">
-                 <p className="text-sm font-bold text-on-surface-variant">Please login to send an inquiry.</p>
-                 <button onClick={() => navigate('/login')} className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold active:scale-95 transition-transform">Login</button>
-               </div>
-            ) : inquirySent ? (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center"
-              >
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Check size={24} className="text-white" />
-                </div>
-                <p className="text-sm font-bold text-green-700">Inquiry Sent Successfully!</p>
-                <p className="text-xs text-green-600 mt-1">The landlord will get back to you soon.</p>
-              </motion.div>
-            ) : (
-              <div className="space-y-4">
-                <textarea 
-                  value={inquiryMessage}
-                  onChange={(e) => setInquiryMessage(e.target.value)}
-                  className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary outline-none text-sm font-medium resize-none"
-                  rows={4}
-                  placeholder="Ask about availability, viewing times, or rent negotiation..."
-                />
-                <button 
-                  disabled={sendingInquiry || !inquiryMessage.trim()}
-                  onClick={handleSendInquiry}
-                  className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {sendingInquiry ? 'Sending...' : (
-                    <>
-                      <Send size={18} />
-                      Send Inquiry
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Amenities</Text>
+                <View style={styles.amenitiesList}>
+                    {(property.amenities || ['Parking', 'Security', 'WiFi']).map(am => (
+                        <View key={am} style={styles.amenityChip}>
+                            <Text style={styles.amenityText}>{am}</Text>
+                        </View>
+                    ))}
+                </View>
+            </View>
+
+            {/* Inquiry */}
+            <View style={styles.inquirySection}>
+                <Text style={styles.sectionTitle}>Send an Inquiry</Text>
+                {!user ? (
+                    <TouchableOpacity 
+                        onPress={() => navigation.navigate('Login')}
+                        style={styles.loginBtn}
+                    >
+                        <Text style={styles.loginBtnText}>Login to send inquiry</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={styles.inquiryForm}>
+                        <TextInput 
+                            value={inquiryMessage}
+                            onChangeText={setInquiryMessage}
+                            placeholder="Ask about availability, viewing times..."
+                            multiline
+                            numberOfLines={4}
+                            style={styles.inquiryText}
+                        />
+                        <TouchableOpacity 
+                            onPress={handleSendInquiry}
+                            disabled={sendingInquiry || !inquiryMessage.trim()}
+                            style={[styles.sendBtn, (sendingInquiry || !inquiryMessage.trim()) && { opacity: 0.6 }]}
+                        >
+                            {sendingInquiry ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <>
+                                    <Send size={18} color="white" />
+                                    <Text style={styles.sendBtnText}>Send Inquiry</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
+
+const Feature = ({ icon, label }: any) => (
+    <View style={styles.featureItem}>
+        <View style={styles.featureIcon}>{icon}</View>
+        <Text style={styles.featureLabel}>{label}</Text>
+    </View>
+);
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: 'white' },
+    header: {
+        position: 'absolute',
+        top: 50,
+        left: 20,
+        right: 20,
+        zIndex: 100,
+        flexDirection: 'row',
+        justifyContent: 'space-between'
+    },
+    headerBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2
+    },
+    heroContainer: {
+        height: 400,
+        width: width,
+        position: 'relative'
+    },
+    heroImage: {
+        width: width,
+        height: 400,
+        resizeMode: 'cover'
+    },
+    indicatorContainer: {
+        position: 'absolute',
+        bottom: 40,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 6
+    },
+    indicator: {
+        height: 6,
+        borderRadius: 3
+    },
+    indicatorActive: {
+        width: 24,
+        backgroundColor: 'white'
+    },
+    indicatorInactive: {
+        width: 6,
+        backgroundColor: 'rgba(255,255,255,0.5)'
+    },
+    contentCard: {
+        backgroundColor: 'white',
+        marginTop: -30,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        elevation: 5
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16
+    },
+    typeBadge: {
+        backgroundColor: '#E6F1FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20
+    },
+    typeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#0061A4',
+        textTransform: 'uppercase'
+    },
+    priceText: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: '#0061A4'
+    },
+    perMonth: {
+        fontSize: 14,
+        color: '#74777F',
+        fontWeight: 'bold'
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#1B1B1F',
+        marginBottom: 8
+    },
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 24
+    },
+    locationText: {
+        fontSize: 14,
+        color: '#74777F',
+        fontWeight: '500'
+    },
+    featuresRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 20,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#F1F3F9',
+        marginBottom: 24
+    },
+    featureItem: {
+        alignItems: 'center',
+        gap: 8
+    },
+    featureIcon: {
+        width: 48,
+        height: 48,
+        backgroundColor: '#F1F3F9',
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    featureLabel: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#1B1B1F'
+    },
+    section: {
+        marginBottom: 24
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1B1B1F',
+        marginBottom: 12
+    },
+    descriptionText: {
+        fontSize: 14,
+        color: '#44474E',
+        lineHeight: 22,
+        fontWeight: '500'
+    },
+    amenitiesList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8
+    },
+    amenityChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: '#F1F3F9',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E1E3E9'
+    },
+    amenityText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#44474E'
+    },
+    inquirySection: {
+        marginTop: 12,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderColor: '#F1F3F9'
+    },
+    loginBtn: {
+        padding: 20,
+        backgroundColor: '#F1F3F9',
+        borderRadius: 16,
+        alignItems: 'center'
+    },
+    loginBtnText: {
+        color: '#0061A4',
+        fontWeight: 'bold'
+    },
+    inquiryForm: {
+        gap: 12
+    },
+    inquiryText: {
+        backgroundColor: '#F1F3F9',
+        borderRadius: 16,
+        padding: 16,
+        height: 120,
+        textAlignVertical: 'top',
+        fontSize: 14,
+        fontWeight: '500'
+    },
+    sendBtn: {
+        height: 56,
+        backgroundColor: '#0061A4',
+        borderRadius: 16,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8
+    },
+    sendBtnText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold'
+    }
+});
+
+export default PropertyDetailScreen;
