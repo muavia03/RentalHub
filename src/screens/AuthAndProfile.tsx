@@ -4,8 +4,9 @@ import { Mail, Lock, Eye, EyeOff, Building2, UserCircle, LogOut, ChevronRight, B
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth, db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
 
 export const LoginScreen = () => {
@@ -377,6 +378,7 @@ export const ProfileScreen = () => {
         avatar: profile?.avatar || ''
     });
     const [saving, setSaving] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const PRESET_AVATARS = [
@@ -390,10 +392,11 @@ export const ProfileScreen = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 500000) { // 500kb limit
-                alert("Image is too large. Please select an image under 500KB.");
+            if (file.size > 2000000) { // 2MB limit for storage
+                alert("Image is too large. Please select an image under 2MB.");
                 return;
             }
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setEditForm({ ...editForm, avatar: reader.result as string });
@@ -442,11 +445,22 @@ export const ProfileScreen = () => {
         if (!user) return;
         setSaving(true);
         try {
+            let avatarUrl = editForm.avatar;
+
+            // If a new file was selected, upload it to Firebase Storage
+            if (selectedFile) {
+                const storageRef = ref(storage, `avatars/${user.uid}_${Date.now()}`);
+                const snapshot = await uploadBytes(storageRef, selectedFile);
+                avatarUrl = await getDownloadURL(snapshot.ref);
+            }
+
             await updateDoc(doc(db, 'users', user.uid), {
                 fullName: editForm.fullName,
                 phone: editForm.phone,
-                avatar: editForm.avatar
+                avatar: avatarUrl
             });
+            
+            setSelectedFile(null);
             setIsEditing(false);
         } catch (err) {
             console.error("Failed to update profile", err);
